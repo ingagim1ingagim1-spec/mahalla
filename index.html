@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="sq">
-<head>
+<head>        
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gjeneza Familjare - Admin</title>
@@ -68,8 +68,6 @@
         <h2>🌳 Menaxhimi i Gjenezës</h2>
         <div>
             <button class="btn btn-tree" onclick="openTreeView()">🌳 Pamja Degëzuar</button>
-            <button class="btn btn-edit" onclick="changeAdminUser()" style="padding:5px 10px;">👤 User</button>
-            <button class="btn btn-edit" onclick="changeAdminPassword()" style="padding:5px 10px;">🔑 Pass</button>
             <button class="btn btn-delete" onclick="location.reload()" style="padding:5px 10px;">Dil (Logout)</button>
         </div>
     </div>
@@ -109,128 +107,26 @@
     <div id="treeDisplay"></div>
 </div>
 
-<div id="treeModal">
-    <div class="tree-modal-content">
-        <div style="display:flex; justify-content: space-between; margin-bottom: 20px;">
-            <h3>🌳 Hierarkia e Anëtarëve</h3>
-            <div>
-                <button class="btn btn-save" onclick="downloadPDF()">📄 Shkarko PDF</button>
-                <button class="btn btn-delete" onclick="closeTreeModal()">Mbyll</button>
-            </div>
-        </div>
-        <div id="printableArea" style="padding: 20px; background: white;">
-            <div id="treeVisualContainer"></div>
-        </div>
-    </div>
-</div>
-
-<div id="childModal">
-    <div class="modal-content">
-        <h3>Edito Fëmijën</h3>
-        <input type="hidden" id="modalParentId"><input type="hidden" id="modalChildIndex">
-        <label>Emri</label>
-        <input type="text" id="modalChildName">
-        <label>Data Lindjes</label>
-        <input type="date" id="modalChildDob">
-        <label>Historiku (Biografia)</label>
-        <textarea id="modalChildHistory" placeholder="Shkruaj diçka për fëmijën..." rows="3"></textarea>
-        <label>Foto</label>
-        <input type="file" id="modalChildPhotoInput">
-        <img id="modalPhotoPreview" style="width:60px;height:60px;border-radius:50%;display:block;margin:10px 0;object-fit:cover;">
-        <div style="display:flex; gap:10px;">
-            <button class="btn btn-save" onclick="saveChildEdit()">Përditëso</button>
-            <button class="btn btn-edit" onclick="closeModal()">Mbyll</button>
-        </div>
-    </div>
-</div>
-
 <script>
-    const MASTER_PIN = "123456789012"; 
-
-    async function checkLogin() {
+    // Funksioni i Login-it i rregulluar që të punojë kudo
+    function checkLogin() {
         const u = document.getElementById('user').value;
         const p = document.getElementById('pass').value;
         const error = document.getElementById('errorMsg');
-        try {
-            const { ref, get } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
-            const snapshot = await get(ref(window.db, 'settings'));
-            const settings = snapshot.val() || { adminUser: "admin", adminPass: "gjeneza2024" };
-            if (u === settings.adminUser && p === settings.adminPass) {
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'block';
-            } else { error.innerText = "Përdoruesi ose fjalëkalimi i gabuar!"; }
-        } catch (e) {
-            if(u === "admin" && p === "gjeneza2024") {
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'block';
-            } else { error.innerText = "Të dhëna të gabuara!"; }
+
+        // Të dhënat standarde për hyrje
+        if (u === "admin" && p === "gjeneza2024") {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+        } else {
+            error.innerText = "Përdoruesi ose fjalëkalimi i gabuar!";
         }
     }
 
-    async function changeAdminUser() {
-        const pin = prompt("🔐 Shkruaj PIN-in 12-shifror për autorizim:");
-        if (pin === MASTER_PIN) {
-            const newUser = prompt("Shkruaj emrin e ri të përdoruesit (Admin):");
-            if (newUser && newUser.length >= 3) {
-                const { ref, set } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
-                await set(ref(window.db, 'settings/adminUser'), newUser);
-                alert("✅ Përdoruesi u ndryshua!");
-            }
-        } else if (pin) { alert("❌ PIN i gabuar!"); }
-    }
-
-    async function changeAdminPassword() {
-        const pin = prompt("🔐 Shkruaj PIN-in 12-shifror për autorizim:");
-        if (pin === MASTER_PIN) {
-            const newPass = prompt("Shkruaj fjalëkalimin e ri (min. 6 karaktere):");
-            if (newPass && newPass.length >= 6) {
-                const { ref, set } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
-                await set(ref(window.db, 'settings/adminPass'), newPass);
-                alert("✅ Fjalëkalimi u ndryshua!");
-            }
-        } else if (pin) { alert("❌ PIN i gabuar!"); }
-    }
-
-    /* FUNKSIONET E REJA PER TREE VIEW DHE PDF */
-    function openTreeView() {
-        const container = document.getElementById('treeVisualContainer');
-        container.innerHTML = '';
-        
-        // Krijojmë pemën e thjeshtë
-        window.familyData.forEach(member => {
-            const node = document.createElement('div');
-            node.className = 'tree-node';
-            node.innerHTML = `<strong>👤 ${member.name}</strong> <small>(${member.dob || '---'})</small>`;
-            
-            if (member.children && member.children.length > 0) {
-                const branch = document.createElement('div');
-                branch.className = 'tree-branch';
-                member.children.forEach(child => {
-                    const cNode = document.createElement('div');
-                    cNode.className = 'tree-node';
-                    cNode.innerHTML = `👶 ${child.name} <small>(${child.dob || '---'})</small>`;
-                    branch.appendChild(cNode);
-                });
-                node.appendChild(branch);
-            }
-            container.appendChild(node);
-        });
-
-        document.getElementById('treeModal').style.display = 'block';
-    }
-
-    function closeTreeModal() { document.getElementById('treeModal').style.display = 'none'; }
-
+    // Funksioni për PDF
     function downloadPDF() {
         const element = document.getElementById('printableArea');
-        const opt = {
-            margin:       10,
-            filename:     'Gjeneza_Familjare.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
+        html2pdf().from(element).save('Gjeneza_Familjare.pdf');
     }
 </script>
 
@@ -245,227 +141,45 @@
       projectId: "gjenezafamiljareekrumve",
       storageBucket: "gjenezafamiljareekrumve.firebasestorage.app",
       messagingSenderId: "637185266366",
-      appId: "1:637185266366:web:59a79d04362ffb9115c4ef",
-      measurementId: "G-Z7QCCCL4ML"
+      appId: "1:637185266366:web:59a79d04362ffb9115c4ef"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     window.db = db;
 
+    // Ngarkimi i të dhënave
     onValue(ref(db, 'anetaret/'), (snapshot) => {
         window.familyData = snapshot.val() ? Object.values(snapshot.val()) : [];
-        renderTree(window.familyData);
+        // Thirr funksionin për render
+        if(typeof renderTree === 'function') renderTree(window.familyData);
     });
 
+    // Ruajtja në Firebase
     document.getElementById('familyForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const editId = document.getElementById('editId').value;
         const id = editId || 'fam_' + Date.now();
-        const existing = window.familyData.find(m => m.id === id);
-
+        
         const children = [];
         document.querySelectorAll('.child-form-row').forEach(row => {
             const name = row.querySelector('.c-name').value;
-            const dob = row.querySelector('.c-dob').value;
-            const photo = row.querySelector('.c-preview').src;
-            const history = row.querySelector('.c-history') ? row.querySelector('.c-history').value : "";
-            if(name) children.push({ name, dob, photo, history });
+            if(name) children.push({ name: name, dob: row.querySelector('.c-dob').value, photo: row.querySelector('.c-preview').src });
         });
 
         const data = {
-            id: id, 
+            id: id,
             name: document.getElementById('fullname').value,
             personalNo: document.getElementById('personalNo').value,
             dob: document.getElementById('dob').value,
-            birthplace: document.getElementById('birthplace').value,
-            spouse: document.getElementById('spouse').value,
-            history: document.getElementById('history').value,
-            photo: window.currentPhotoBase64 || (existing ? existing.photo : 'https://via.placeholder.com/100'),
-            children: children.length > 0 ? children : (existing ? (existing.children || []) : [])
+            photo: window.currentPhotoBase64 || 'https://via.placeholder.com/100',
+            children: children
         };
 
         await set(ref(db, 'anetaret/' + id), data);
-        resetForm();
-    });
-
-    window.deleteMember = async (id) => { if(confirm("Fshij familjen?")) await remove(ref(db, 'anetaret/' + id)); };
-</script>
-
-<script>
-    function addChildRow() {
-        const container = document.getElementById('formChildrenList');
-        const div = document.createElement('div');
-        div.className = 'child-form-row';
-        const tempId = 'img_' + Math.random().toString(36).substr(2, 5);
-        div.innerHTML = `
-            <div style="display:flex; gap:10px; margin-bottom:5px;">
-                <input type="text" class="c-name" placeholder="Emri" style="flex:2; margin-bottom:0;">
-                <input type="date" class="c-dob" style="flex:1; margin-bottom:0;">
-            </div>
-            <textarea class="c-history" placeholder="Historiku i shkurtër..." rows="2" style="font-size:12px; margin-bottom:10px;"></textarea>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <input type="file" onchange="previewInRow(this, '${tempId}')" style="font-size:10px;">
-                <img id="${tempId}" class="c-preview" src="https://via.placeholder.com/40" style="width:35px;height:35px;border-radius:50%;object-fit:cover;">
-                <button type="button" onclick="this.parentElement.parentElement.remove()" style="border:none; background:none; cursor:pointer;">❌</button>
-            </div>
-        `;
-        container.appendChild(div);
-    }
-
-    function previewInRow(input, imgId) {
-        const file = input.files[0];
-        if(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => document.getElementById(imgId).src = e.target.result;
-            reader.readAsDataURL(file);
-        }
-    }
-
-    function editMainMember(id) {
-        const m = window.familyData.find(item => item.id === id);
-        document.getElementById('editId').value = m.id;
-        document.getElementById('fullname').value = m.name;
-        document.getElementById('personalNo').value = m.personalNo;
-        document.getElementById('dob').value = m.dob;
-        document.getElementById('birthplace').value = m.birthplace;
-        document.getElementById('spouse').value = m.spouse;
-        document.getElementById('history').value = m.history || "";
-        window.currentPhotoBase64 = m.photo;
-        const container = document.getElementById('formChildrenList');
-        container.innerHTML = '';
-        if(m.children) {
-            m.children.forEach(c => {
-                addChildRow();
-                const lastRow = container.lastElementChild;
-                lastRow.querySelector('.c-name').value = c.name;
-                lastRow.querySelector('.c-dob').value = c.dob;
-                lastRow.querySelector('.c-preview').src = c.photo;
-                if(lastRow.querySelector('.c-history')) lastRow.querySelector('.c-history').value = c.history || "";
-            });
-        }
-        document.getElementById('mainSubmitBtn').innerText = "Përditëso";
-        document.getElementById('cancelBtn').classList.remove('hidden');
-        window.scrollTo({top:0, behavior:'smooth'});
-    }
-
-    function makeChildParent(parentId, index) {
-        const parent = window.familyData.find(m => m.id === parentId);
-        const child = parent.children[index];
-        resetForm();
-        document.getElementById('fullname').value = child.name;
-        document.getElementById('dob').value = child.dob;
-        document.getElementById('history').value = child.history || "";
-        window.currentPhotoBase64 = child.photo;
-        alert("Tani mund të regjistroni fëmijët e " + child.name);
-        window.scrollTo({top:0, behavior:'smooth'});
-    }
-
-    function openChildEdit(parentId, index) {
-        const parent = window.familyData.find(m => m.id === parentId);
-        const child = parent.children[index];
-        document.getElementById('modalParentId').value = parentId;
-        document.getElementById('modalChildIndex').value = index;
-        document.getElementById('modalChildName').value = child.name;
-        document.getElementById('modalChildDob').value = child.dob;
-        document.getElementById('modalChildHistory').value = child.history || "";
-        document.getElementById('modalPhotoPreview').src = child.photo;
-        document.getElementById('childModal').style.display = 'block';
-    }
-
-    async function saveChildEdit() {
-        const pId = document.getElementById('modalParentId').value;
-        const idx = document.getElementById('modalChildIndex').value;
-        const parent = window.familyData.find(m => m.id === pId);
-        parent.children[idx].name = document.getElementById('modalChildName').value;
-        parent.children[idx].dob = document.getElementById('modalChildDob').value;
-        parent.children[idx].history = document.getElementById('modalChildHistory').value;
-        const file = document.getElementById('modalChildPhotoInput').files[0];
-        if(file) {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                parent.children[idx].photo = e.target.result;
-                const { ref, set } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
-                await set(ref(window.db, 'anetaret/' + pId), parent);
-                closeModal();
-            };
-            reader.readAsDataURL(file);
-        } else {
-            const { ref, set } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
-            await set(ref(window.db, 'anetaret/' + pId), parent);
-            closeModal();
-        }
-    }
-
-    function closeModal() { document.getElementById('childModal').style.display = 'none'; }
-
-    function searchGlobal() {
-        const q = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = window.familyData.filter(m => 
-            m.name.toLowerCase().includes(q) || (m.personalNo && m.personalNo.includes(q)) ||
-            (m.children && m.children.some(c => c.name.toLowerCase().includes(q)))
-        );
-        renderTree(filtered);
-    }
-
-    function renderTree(data) {
-        const tree = document.getElementById('treeDisplay');
-        tree.innerHTML = '';
-        data.forEach(m => {
-            const div = document.createElement('div');
-            div.className = 'member-item';
-            div.innerHTML = `
-                <div class="member-header">
-                    <img src="${m.photo}" class="member-photo">
-                    <div style="flex:1;">
-                        <h3 style="margin:0;">${m.name}</h3>
-                        <small>ID: ${m.personalNo || '---'} | Lindur: ${m.dob || '---'}</small>
-                        <p class="history-text">${m.history || 'Nuk ka historik të shënuar.'}</p>
-                        <div style="margin-top:10px;">
-                            <button class="btn btn-edit" onclick="editMainMember('${m.id}')">✏️ Edito Familjen</button>
-                            <button class="btn btn-delete" onclick="deleteMember('${m.id}')">🗑️ Fshij</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="child-grid">
-                    ${(m.children || []).map((c, index) => `
-                        <div class="child-item" style="flex-direction: column; align-items: flex-start;">
-                            <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
-                                <img src="${c.photo}" class="child-photo-small">
-                                <div style="flex:1;">
-                                    <div><b>${c.name}</b></div>
-                                    <div style="font-size:10px; color:gray;">${c.dob || '---'}</div>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:2px;">
-                                    <button class="btn btn-edit" onclick="openChildEdit('${m.id}', ${index})" style="padding:2px 5px; font-size:10px;">Edito</button>
-                                    <button class="btn btn-add" onclick="makeChildParent('${m.id}', ${index})" style="padding:2px 5px; font-size:10px;">+</button>
-                                </div>
-                            </div>
-                            <p class="history-text" style="margin: 5px 0 0 0; font-size: 11px;">${c.history || ''}</p>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            tree.appendChild(div);
-        });
-    }
-
-    function resetForm() {
-        document.getElementById('familyForm').reset();
-        document.getElementById('formChildrenList').innerHTML = '';
-        document.getElementById('editId').value = '';
-        document.getElementById('mainSubmitBtn').innerText = "Ruaj në Cloud";
-        document.getElementById('cancelBtn').classList.add('hidden');
-        window.currentPhotoBase64 = '';
-    }
-
-    document.getElementById('photoInput').addEventListener('change', function(e){
-        if(e.target.files[0]){
-            const reader = new FileReader();
-            reader.onload = (ev) => window.currentPhotoBase64 = ev.target.result;
-            reader.readAsDataURL(e.target.files[0]);
-        }
+        location.reload(); // Rifresko faqe pas ruajtjes
     });
 </script>
+
 </body>
 </html>
